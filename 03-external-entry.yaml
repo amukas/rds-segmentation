@@ -1,0 +1,103 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: httpbin-se
+spec:
+  hosts:
+    - httpbin.org
+  exportTo:
+    - "*"
+  ports:
+    - number: 80
+      name: http
+      protocol: HTTP
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: istio-egressgateway
+spec:
+  selector:
+    istio: egressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - httpbin.org
+---
+#apiVersion: networking.istio.io/v1alpha3
+#kind: DestinationRule
+#metadata:
+#  name: egressgateway-for-httpbin
+#spec:
+#  host: istio-egressgateway.istio-system.svc.cluster.local
+#  subsets:
+#    - name: httpbin
+#---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: direct-httpbin-through-egress-gateway
+spec:
+  hosts:
+    - httpbin.org
+  gateways:
+    - istio-egressgateway
+    - mesh
+  http:
+    - match:
+        - gateways:
+            - mesh
+          port: 80
+      route:
+        - destination:
+            host: istio-egressgateway.istio-system.svc.cluster.local
+#            subset: httpbin
+            port:
+              number: 80
+          weight: 100
+    - match:
+        - gateways:
+            - istio-egressgateway
+          port: 80
+      route:
+        - destination:
+            host: httpbin.org
+            port:
+              number: 80
+          weight: 100
+#---
+#apiVersion: networking.k8s.io/v1
+#kind: NetworkPolicy
+#metadata:
+#  name: allow-egress-to-istio-system-and-kube-dns
+#spec:
+#  podSelector: { }
+#  policyTypes:
+#    - Egress
+#  egress:
+#    - to:
+#        - namespaceSelector: { }
+#          podSelector:
+#            matchLabels:
+#              k8s-app: kube-dns
+#      ports:
+#        - port: 53
+#          protocol: UDP
+#    - to:
+#        - namespaceSelector: { }
+#          podSelector:
+#            matchLabels:
+#              app: istio-egressgateway
+---
+
+# allow-nothing, but does not get applied to ServiceEntry (e.g. curl -v http://httpbin.org/ip)
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-auth
+spec:
+  {}
