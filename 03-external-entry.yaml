@@ -94,10 +94,46 @@ spec:
 #              app: istio-egressgateway
 ---
 
-# allow-nothing, but does not get applied to ServiceEntry (e.g. curl -v http://httpbin.org/ip)
+# allow-nothing, by default
+#apiVersion: security.istio.io/v1beta1
+#kind: AuthorizationPolicy
+#metadata:
+#  name: auth-default
+#  namespace: istio-system # it MUST be in istio-system
+#spec:
+#  {}
+
+# shpod should be allowed to access httpbin.org
+# but it is not
+# k exec shpod -it -n shpod  -- bash
+# curl http://httpbin.org/ip -v
+# --> 403
+---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: httpbin-auth
+  namespace: istio-system
+#  namespace: shpod
 spec:
-  {}
+#  selector:
+#    matchLabels:
+#      app: istio-egressgateway
+  action: ALLOW
+#  action: AUDIT
+  rules:
+    - from:
+#        - source:
+#            principals: ["cluster.local/ns/shpod/sa/shpod"]
+        - source:
+            namespaces: ["shpod"]
+      to:
+#        - operation:
+#            methods: ["GET"]
+#            paths: ["/ip"]
+#        - operation:
+#            methods: ["POST"]
+#            paths: ["/data"]
+#      when:
+#        - key: request.auth.claims[iss]
+#          values: ["http://httpbin.org"]
